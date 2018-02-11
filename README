@@ -8,9 +8,19 @@
 
 * Installing on Ubuntu 16.04
 
-```sh
+```
 $ sudo apt install python3 python3-pip python3-venv
 $ python3 -m venv myvenv
 $ source myvenv/bin/activate
 (myvenv)$
 ```
+
+### TODO next
+
+* add tests for monitor
+* get rid of name and delay from the thread
+* re-read paper from Ly and Thomas 
+* create a simple data base according to the paper from Ly
+* test the player plays role, and assure the order is respected
+* intercept the player call, searching first in the DB
+  * if not found, call the local version

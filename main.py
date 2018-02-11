@@ -20,7 +20,10 @@ start_monitor_thread()
 while 1:
     time.sleep(1)
     print(g.roles)
-    #import pdb; pdb.set_trace()
     for role in g.roles:
-       g.roles[role].play() 
+       try:
+           g.roles[role].play() 
+       except Exception as e:
+           print("Could not play: {}".format(e))
+           
 
