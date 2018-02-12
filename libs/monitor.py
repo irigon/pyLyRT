@@ -5,6 +5,8 @@ import os
 import sys
 
 from libs import g
+#TODO: change _thread to Threading, a higher level abstraction
+# This will make it easier to test and query its state in testing
 
 
 def start_monitor_thread(path_to_runtime_lib):
@@ -15,7 +17,6 @@ def start_monitor_thread(path_to_runtime_lib):
 
 # Define a function for the thread
 def monitor(path_to_runtime_lib):
-   print(os.getcwd())
    inotify = INotify()
    watch_flags = flags.CREATE | flags.DELETE | flags.DELETE_SELF
    wd = inotify.add_watch(path_to_runtime_lib + '/', watch_flags)
@@ -36,10 +37,4 @@ def monitor(path_to_runtime_lib):
             if i is not None:
                 c = { x:y for x,y in i.__dict__.items() if not x.startswith('__') }
                 g.roles.update(c)
-
-
-
-
-if __name__ == '__main__':
-    monitor('../runtime_lib')
 

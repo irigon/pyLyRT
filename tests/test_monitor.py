@@ -22,5 +22,5 @@ class TestMonitor(unittest.TestCase):
     def test_start_monitor(self):
         from libs.monitor import start_monitor_thread
         start_monitor_thread('runtime_lib')
-        for i in range(3):
-            time.sleep(1)
+        time.sleep(1)
+
