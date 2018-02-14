@@ -23,20 +23,10 @@ class Monitor(threading.Thread):
         threading.Thread.__init__(self)
         self.path = path_to_runtime_lib
 
-    def __del__(self):
-        print('removing inotify')
-        self.inotify.remove_watch(self.path)
-
-    def show_nspace(self):
-        return(g.nspace)
-
     def start_inotify(self):
         self.inotify = INotify()
         watch_flags = flags.CLOSE_WRITE | flags.DELETE
         wd = self.inotify.add_watch(self.path + '/', watch_flags)
-
-    def stop(self):
-        self._stop_event.set()
 
     def run(self):
         while True:
