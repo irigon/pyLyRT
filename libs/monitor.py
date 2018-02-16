@@ -34,7 +34,6 @@ class Monitor(threading.Thread):
                 if event.name.endswith('.py'):
                     module_name = self.path + '.' + os.path.splitext(event.name)[0]
                     for flag in flags.from_mask(event.mask):
-                        print('{}, Flag name: {}, Module Name: {}  '.format(event, flag.name, module_name))
                         if flag.name == 'CLOSE_WRITE':
                             try:
                                 if module_name in sys.modules:
@@ -42,12 +41,10 @@ class Monitor(threading.Thread):
                                 else:
                                     i = importlib.import_module(module_name)
                             except Exception as ex:
-                                #print('--- Module {} could not be loaded. {}'.format(module_name), ex)
                                 i = None
 
                             if i is not None:
                                 c = {x: y for x, y in i.__dict__.items() if not x.startswith('__')}
-                                print('adding {} to g, i = {}'.format(c, i))
                                 g.nspace.update(c)
 
                         if flag.name == 'DELETE':

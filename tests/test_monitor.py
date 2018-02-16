@@ -8,7 +8,7 @@ from nose.tools import raises
 
 # What can be tested:
 #   * On monitor call
-#       * the thread is created
+#       * the thread is createdf
 #       * create a file with extension .py ** (notes 1)
 #           * if the file contains valid python code (e.g a class)
 #               * if the class is being loaded for the first time:

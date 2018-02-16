@@ -1,20 +1,21 @@
 import unittest
-from libs import db
 from nose.tools import raises
 from sqlite3 import IntegrityError, OperationalError
+import sys, os
+
+sys.path.insert(0, os.path.abspath('.'))
+from app import company_example as ce
+from libs import db
+from libs import rop
+from libs import g
+
+db_name = 'roles_db'
 
 class TestDB(unittest.TestCase):
 
     def setUp(self):
-        args = "CompartmentId text CHECK(TYPEOF(CompartmentId) = 'text'), " \
-               "CorePlayerId text CHECK(TYPEOF(CorePlayerId) = 'text'), " \
-               "PlayerId text CHECK(TYPEOF(PlayerId) = 'text'), " \
-               "RoleId text CHECK(TYPEOF(RoleId) = 'text'), " \
-               "RelationType text CHECK(TYPEOF(RelationType) = 'text'), " \
-               "BindingLevel integer CHECK(TYPEOF(BindingLevel) = 'integer'), " \
-               "BindingSequence integer CHECK(TYPEOF(BindingSequence) = 'integer')"
-        self.mydb = db.DB('roles_db', args)
-        self.mydb.dbconn.execute('CREATE INDEX search_order ON roles_db(BindingLevel DESC, BindingSequence DESC)')
+        self.mydb = db.DB(db_name)
+        self.mock_objs = {}
 
 
     def tearDown(self):
@@ -23,7 +24,7 @@ class TestDB(unittest.TestCase):
     def test_db_creation(self):
         args = "CompartmentId text, CorePlayerId text, PlayerId text, RoleId text, RelationType text, " \
                "BindingLevel integer, BindingSequence integer"
-        mydb = db.DB('tmp_db', args)
+        mydb = db.DB('tmp_db')
         self.assertTrue(mydb.dbconn is not None)
         mydb.dbconn.close()
 
@@ -34,7 +35,7 @@ class TestDB(unittest.TestCase):
                 ('company', 'ely'    , 'ely'      , 'freelance' , 'PPR', 1, 1),
                 ('company', 'ely'    , 'freelance', 'taxpayer'  , 'RPR', 2, 1),
                 ('tax'    , 'company', 'company'  , 'taxpayer'  , 'PPR', 1, 1)]
-        self.mydb.dbconn.executemany('INSERT INTO roles_db VALUES(?, ?, ?, ?, ?, ?, ?)', rows)
+        self.mydb.dbconn.executemany('INSERT INTO {} VALUES(?, ?, ?, ?, ?, ?, ?)'.format(db_name), rows)
 
         num_rows =  self.mydb.dbconn.execute('select count(*) from roles_db')
         self.assertEqual(num_rows.fetchone()[0], 5)
@@ -81,78 +82,127 @@ class TestDB(unittest.TestCase):
                 ('company', 'a', 'g', 'h', 'RPR', 4, 1),
                 ('company', 'a', 'g', 'i', 'RPR', 4, 2),
                 ('company', 'a', 'f', 'j', 'RPR', 3, 2)]
-        objects={}
         for i in ['a','b','c','d','e','f','g','h','i','j']:
-            objects[i]=Dummy()
+            self.mock_objs[i]=Dummy()
 
-        objects['a'].m0=dummyFunc()
-        objects['b'].m1=dummyFunc()
-        objects['b'].m2=dummyFunc()
-        objects['b'].m3=dummyFunc()
-        objects['c'].m2=dummyFunc()
-        objects['d'].m1=dummyFunc()
-        objects['h'].m3=dummyFunc()
-        objects['i'].m3=dummyFunc()
-        objects['i'].m4=dummyFunc()
+        self.mock_objs['a'].m0=dummyFunc()
+        self.mock_objs['b'].m1=dummyFunc()
+        self.mock_objs['b'].m2=dummyFunc()
+        self.mock_objs['b'].m3=dummyFunc()
+        self.mock_objs['c'].m2=dummyFunc()
+        self.mock_objs['d'].m1=dummyFunc()
+        self.mock_objs['h'].m3=dummyFunc()
+        self.mock_objs['i'].m3=dummyFunc()
+        self.mock_objs['i'].m4=dummyFunc()
 
-        return(rows, objects)
+        return(rows, self.mock_objs)
+
+    def feed_db_and_select_ordered(self, rows):
+        self.mydb.dbconn.executemany('INSERT INTO roles_db VALUES(?, ?, ?, ?, ?, ?, ?)', rows)
+        ordered_list = self.mydb.dbconn.execute('SELECT * FROM ' + db_name + \
+                                            ' order by BindingLevel DESC,BindingSequence DESC')
+        return ordered_list
+
+    def select_current_context_for_method(self, rows, method_name):
+        ordered_list = self.feed_db_and_select_ordered(rows)
+        return next((x[3] for x in ordered_list.fetchall() if hasattr(self.mock_objs[x[3]],method_name) is not False), None)
 
     def test_db_valid_query(self):
         rows, objects = self.setupDBforTesting()
-        self.mydb.dbconn.executemany('INSERT INTO roles_db VALUES(?, ?, ?, ?, ?, ?, ?)', rows)
-        sequence = self.mydb.dbconn.execute('SELECT * FROM roles_db order by BindingLevel DESC,BindingSequence DESC')
-        self.assertEqual(9, len(sequence.fetchall()))
+        ordered_list = self.feed_db_and_select_ordered(rows)
+        self.assertEqual(9, len(ordered_list.fetchall()))
 
     # searching for leaf (m4)
     def test_db_valid_simple_search_item_present(self):
         rows, objects = self.setupDBforTesting()
-        self.mydb.dbconn.executemany('INSERT INTO roles_db VALUES(?, ?, ?, ?, ?, ?, ?)', rows)
-        sequence = self.mydb.dbconn.execute('SELECT * FROM roles_db order by BindingLevel DESC,BindingSequence DESC')
-        # TODO: use generators instead of fetchall
+        ordered_list = self.feed_db_and_select_ordered(rows)
+        # TODO: use generators (with fetchmany) instead of fetchall
         # the third in the tuple is the role
-        val = next((x[3] for x in sequence.fetchall() if hasattr(objects[x[3]],'m4') is not False), None)
+        val = self.select_current_context_for_method(rows, 'm4')
         self.assertTrue(val is not None)
 
     def test_db_valid_simple_search_item_not_present(self):
         rows, objects = self.setupDBforTesting()
-        self.mydb.dbconn.executemany('INSERT INTO roles_db VALUES(?, ?, ?, ?, ?, ?, ?)', rows)
-        sequence = self.mydb.dbconn.execute('SELECT * FROM roles_db order by BindingLevel DESC,BindingSequence DESC')
-        val = next((x[3] for x in sequence.fetchall() if hasattr(objects[x[3]],'m100') is not False), None)
+        val = self.select_current_context_for_method(rows, 'm100')
         self.assertTrue(val is None)
 
     # core is not going to be found, since this search method go just through the roles
     def test_db_valid_search_method_in_core(self):
         rows, objects = self.setupDBforTesting()
-        self.mydb.dbconn.executemany('INSERT INTO roles_db VALUES(?, ?, ?, ?, ?, ?, ?)', rows)
-        sequence = self.mydb.dbconn.execute('SELECT * FROM roles_db order by BindingLevel DESC,BindingSequence DESC')
-        val = next((x[3] for x in sequence.fetchall() if hasattr(objects[x[3]],'m0') is not False), None)
+        val = self.select_current_context_for_method(rows, 'm0')
         self.assertEquals(val, None)
         self.assertTrue(hasattr(objects['a'], 'm0'))
 
     def test_db_valid_search_same_index_different_deep(self):
         rows, objects = self.setupDBforTesting()
-        self.mydb.dbconn.executemany('INSERT INTO roles_db VALUES(?, ?, ?, ?, ?, ?, ?)', rows)
-        sequence = self.mydb.dbconn.execute('SELECT * FROM roles_db order by BindingLevel DESC,BindingSequence DESC')
-        val = next((x[3] for x in sequence.fetchall() if hasattr(objects[x[3]],'m1') is not False), None)
+        val = self.select_current_context_for_method(rows, 'm1')
         self.assertEquals(val, 'd')
 
     def test_db_valid_search_same_level_different_sequence(self):
         rows, objects = self.setupDBforTesting()
-        self.mydb.dbconn.executemany('INSERT INTO roles_db VALUES(?, ?, ?, ?, ?, ?, ?)', rows)
-        sequence = self.mydb.dbconn.execute('SELECT * FROM roles_db order by BindingLevel DESC,BindingSequence DESC')
-        val = next((x[3] for x in sequence.fetchall() if hasattr(objects[x[3]],'m2') is not False), None)
+        val = self.select_current_context_for_method(rows, 'm2')
         self.assertEquals(val, 'c')
 
     def test_db_valid_search_different_level_and_sequence(self):
         rows, objects = self.setupDBforTesting()
-        self.mydb.dbconn.executemany('INSERT INTO roles_db VALUES(?, ?, ?, ?, ?, ?, ?)', rows)
-        sequence = self.mydb.dbconn.execute('SELECT * FROM roles_db order by BindingLevel DESC,BindingSequence DESC')
-        val = next((x[3] for x in sequence.fetchall() if hasattr(objects[x[3]],'m3') is not False), None)
+        val = self.select_current_context_for_method(rows, 'm3')
         self.assertEquals(val, 'i')
 
+    # we assume that a bind has always a role and a compartment to it
+    # we can create a dummy compartment and a dummy role to use in case none should be there
     # every insert, we must assure that the sequence becomes the greates of that level
-    def test_db_valid_insert_item(self):
-        pass
+    #def test_db_valid_bind_person_to_company(self):
+    #    company = ce.Company(1000, id='company')
+    #    pedro = ce.Person('bob', 10, id='bob')
+    #    self.mydb.bind(company, pedro)
+    #
+    #   self.assertEquals(len(company.players), 1)
+    #    self.assertTrue(pedro.uuid in company.players)
+
+    def test_bind_role_to_person(self):
+        company = ce.Company(100000, id='company')
+        bob = ce.Person('bob', 10000, id='bob')
+        developer = ce.Developer(100, id='developer')
+        self.mydb.bind(company, bob, bob, developer, 'PPR')
+        line = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()[0]
+        self.assertEquals(('company', 'bob', 'bob', 'developer', 'PPR', 1, 1), line)
+
+    def test_second_bind_role_to_person(self):
+        company = ce.Company(100000, id='company')
+        bob = ce.Person('bob', 10000, id='bob')
+        developer = ce.Developer(100, id='developer')
+        accountant = ce.Accountant(100, id='accountant')
+        self.mydb.bind(company, bob, bob, developer, 'PPR')
+        self.mydb.bind(company, bob, bob, accountant, 'PPR')
+        line = self.mydb.dbconn.execute("SELECT * FROM {} WHERE CorePlayerId='{}' and PlayerId='{}' \
+                                        order by BindingLevel DESC,BindingSequence DESC".format \
+                                         (self.mydb.name, bob.uuid, bob.uuid)).fetchall()[0]
+        self.assertEquals(('company', 'bob', 'bob', 'accountant', 'PPR', 1, 2), line)
+
+    def test_second_bind_roles_as_in_paper(self):
+        company = ce.Company(100000, id='company')
+        tax = ce.TaxDepartment(100000, id='tax')
+        bob = ce.Person('bob', 10000, id='bob')
+        ely = ce.Person('ely', 10000, id='ely')
+        developer = ce.Developer(100, id='developer')
+        accountant = ce.Accountant(100, id='accountant')
+        freelance = ce.Freelance(100, id='freelance')
+        taxpayer = ce.TaxPayer(id='taxpayer')
+        self.mydb.bind(company, bob, bob, developer, 'PPR')
+        self.mydb.bind(company, bob, bob, accountant, 'PPR')
+        self.mydb.bind(company, ely, ely, freelance, 'PPR')
+        self.mydb.bind(company, ely, freelance, taxpayer, 'RPR')
+        self.mydb.bind(company, company, company, taxpayer, 'PPR')
+        table = self.mydb.dbconn.execute("SELECT * FROM {}  \
+                                        order by BindingLevel DESC,BindingSequence DESC".format \
+                                         (self.mydb.name)).fetchall()
+
+        table_goal= [('company', 'ely', 'freelance', 'taxpayer', 'RPR', 2, 1),
+                    ('company', 'bob', 'bob', 'accountant', 'PPR', 1, 2),
+                    ('company', 'bob', 'bob', 'developer', 'PPR', 1, 1),
+                    ('company', 'ely', 'ely', 'freelance', 'PPR', 1, 1),
+                    ('company', 'company', 'company', 'taxpayer', 'PPR', 1, 1)]
+        self.assertEquals(table, table_goal)
 
     # update levels and sequences
     # verify consistency of the levels and sequences
@@ -160,4 +210,281 @@ class TestDB(unittest.TestCase):
         pass
 
 
+class TestFindNextLevel(unittest.TestCase):
+
+    #Create test setup
+    #  [a, b, c..., j] are objects. A is the core, the other are roles
+    # a         -- b
+    #           -- c
+    #               -- d
+    #               -- e
+    #                   -- g
+    #                       -- h
+    #                       -- i
+    #               -- f
+    #                   -- j
+
+
+    def setUp(self):
+        self.mydb = db.DB(db_name)
+
+        rows = [('company', 'a', 'a', 'b', 'PPR', 1, 1),
+                ('company', 'a', 'a', 'c', 'PPR', 1, 2),
+                ('company', 'a', 'c', 'd', 'RPR', 2, 1),
+                ('company', 'a', 'c', 'e', 'RPR', 2, 2),
+                ('company', 'a', 'c', 'f', 'RPR', 2, 3),
+                ('company', 'a', 'e', 'g', 'RPR', 3, 1),
+                ('company', 'a', 'g', 'h', 'RPR', 4, 1),
+                ('company', 'a', 'g', 'i', 'RPR', 4, 2),
+                ('company', 'a', 'f', 'j', 'RPR', 3, 2)]
+        self.mydb.dbconn.executemany('INSERT INTO {} VALUES(?, ?, ?, ?, ?, ?, ?)'.format(db_name), rows)
+
+    def test_add_role_to_core(self):
+        self.assertEquals(self.mydb.find_next_level_and_sequence('a', 'a', 'X', 'PPR'), (1,3))
+
+    def test_add_role_to_role_at_tree_begin(self):
+        self.assertEquals(self.mydb.find_next_level_and_sequence('a', 'b', 'X', 'RPR'), (2,4))
+
+    def test_add_role_to_role_at_tree_leaf(self):
+        self.assertEquals(self.mydb.find_next_level_and_sequence('a', 'c', 'X', 'RPR'), (2,4))
+
+    def test_add_role_to_role_when_the_next_level_does_not_exist_beginning(self):
+        self.assertEquals(self.mydb.find_next_level_and_sequence('a', 'h', 'X', 'RPR'), (5,1))
+
+    def test_add_role_to_role_when_the_next_level_does_not_exist_leaf(self):
+        self.assertEquals(self.mydb.find_next_level_and_sequence('a', 'i', 'X', 'RPR'), (5,1))
+
+    def test_add_first_role(self):
+        self.assertEquals(self.mydb.find_next_level_and_sequence('A', 'A', 'X', 'PPR'), (1,1))
+
+    @raises(IndexError)
+    def test_throw_exception_when_RPR_on_core_obj(self):
+        self.mydb.find_next_level_and_sequence('A', 'A', 'X', 'RPR')
+
+    def tearDown(self):
+        self.mydb.dbconn.close()
+
+
+class TestUnbind(unittest.TestCase):
+
+    class P_A(rop.Player):
+        def __init__(self):
+            self.uuid = 'coreA'
+            self.roles = {}
+            self.classtype = 'P_A'
+
+    class C_A(rop.Compartment):
+        def __init__(self):
+            self.uuid = 'compartmentA'
+            self.players={}
+            self.classtype = 'C_A'
+
+    class R_B(rop.Role):
+        def __init__(self):
+            self.uuid = 'b'
+            self.roles={}
+            self.classtype = 'R_B'
+
+    class R_C(rop.Role):
+        def __init__(self):
+            self.uuid = 'c'
+            self.roles={}
+            self.classtype = 'R_C'
+
+    class R_D(rop.Role):
+        def __init__(self):
+            self.uuid = 'd'
+            self.roles={}
+            self.classtype = 'R_D'
+
+    class R_E(rop.Role):
+        def __init__(self):
+            self.uuid = 'e'
+            self.roles={}
+            self.classtype = 'R_E'
+
+    class R_F(rop.Role):
+        def __init__(self):
+            self.uuid = 'f'
+            self.roles={}
+            self.classtype = 'R_F'
+
+    class R_G(rop.Role):
+        def __init__(self):
+            self.uuid = 'g'
+            self.roles={}
+            self.classtype = 'R_G'
+
+    class R_H(rop.Role):
+        def __init__(self):
+            self.uuid = 'h'
+            self.roles={}
+            self.classtype = 'R_H'
+
+    class R_I(rop.Role):
+        def __init__(self):
+            self.uuid = 'i'
+            self.roles={}
+            self.classtype = 'R_I'
+
+    class R_J(rop.Role):
+        def __init__(self):
+            self.uuid = 'j'
+            self.roles={}
+            self.classtype = 'R_J'
+
+    # a         -- b
+    #           -- c
+    #               -- d
+    #               -- e
+    #                   -- g
+    #                       -- h
+    #                       -- i
+    #               -- f
+    #                   -- j
+
+
+
+    def setUp(self):
+        self.mydb = db.DB(db_name)
+        ca = self.C_A()
+        pa = self.P_A()
+        rb = self.R_B()
+        rc = self.R_C()
+        rd = self.R_D()
+        re = self.R_E()
+        rf = self.R_F()
+        rg = self.R_G()
+        rh = self.R_H()
+        ri = self.R_I()
+        rj = self.R_J()
+        self.mydb.bind(ca, pa, pa, rb, 'PPR')
+        self.mydb.bind(ca, pa, pa, rc, 'PPR')
+        self.mydb.bind(ca, pa, rc, rd, 'RPR')
+        self.mydb.bind(ca, pa, rc, re, 'RPR')
+        self.mydb.bind(ca, pa, rc, rf, 'RPR')
+        self.mydb.bind(ca, pa, re, rg, 'RPR')
+        self.mydb.bind(ca, pa, re, rj, 'RPR')
+        self.mydb.bind(ca, pa, rg, rh, 'RPR')
+        self.mydb.bind(ca, pa, rg, ri, 'RPR')
+
+        ## basically load the classes to g
+        for player in [pa]:
+            g.players[player.uuid] = player
+
+        for compartment in [ca]:
+            g.compartments[compartment.classtype] = compartment
+
+        for role in [rb, rc, rd, re, rf, rg, rh, ri, rj]:
+            g.roles[role.classtype] = role
+
+        self.wholeTable=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
+                        ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
+                        ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
+                        ('compartmentA', 'coreA', 'c', 'e', 'RPR', 2, 2),
+                        ('compartmentA', 'coreA', 'c', 'f', 'RPR', 2, 3),
+                        ('compartmentA', 'coreA', 'e', 'g', 'RPR', 3, 1),
+                        ('compartmentA', 'coreA', 'e', 'j', 'RPR', 3, 2),
+                        ('compartmentA', 'coreA', 'g', 'h', 'RPR', 4, 1),
+                        ('compartmentA', 'coreA', 'g', 'i', 'RPR', 4, 2)]
+
+        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        # assure the table is right. If something change the test should fail
+        self.assertEquals(self.wholeTable, resultFetched)
+
+    def tearDown(self):
+        self.mydb.dbconn.close()
+
+    def test_unbind_b(self):
+        self.mydb.unbind('coreA', 'b')
+        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        result_without_b=[('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
+                        ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
+                        ('compartmentA', 'coreA', 'c', 'e', 'RPR', 2, 2),
+                        ('compartmentA', 'coreA', 'c', 'f', 'RPR', 2, 3),
+                        ('compartmentA', 'coreA', 'e', 'g', 'RPR', 3, 1),
+                        ('compartmentA', 'coreA', 'e', 'j', 'RPR', 3, 2),
+                        ('compartmentA', 'coreA', 'g', 'h', 'RPR', 4, 1),
+                        ('compartmentA', 'coreA', 'g', 'i', 'RPR', 4, 2)]
+        self.assertEquals(resultFetched, result_without_b)
+
+    def test_unbind_c(self):
+        self.mydb.unbind('coreA', 'c')
+        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        result_without_b=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1)]
+        self.assertEquals(resultFetched, result_without_b)
+
+    def test_unbind_d(self):
+        self.mydb.unbind('coreA', 'd')
+        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        result_without_d=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
+                        ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
+                        ('compartmentA', 'coreA', 'c', 'e', 'RPR', 2, 2),
+                        ('compartmentA', 'coreA', 'c', 'f', 'RPR', 2, 3),
+                        ('compartmentA', 'coreA', 'e', 'g', 'RPR', 3, 1),
+                        ('compartmentA', 'coreA', 'e', 'j', 'RPR', 3, 2),
+                        ('compartmentA', 'coreA', 'g', 'h', 'RPR', 4, 1),
+                        ('compartmentA', 'coreA', 'g', 'i', 'RPR', 4, 2)]
+        self.assertEquals(resultFetched, result_without_d)
+
+    def test_unbind_e(self):
+        self.mydb.unbind('coreA', 'e')
+        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        result_without_e=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
+                        ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
+                        ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
+                        ('compartmentA', 'coreA', 'c', 'f', 'RPR', 2, 3)]
+
+        self.assertEquals(resultFetched, result_without_e)
+
+    def test_unbind_f(self):
+        self.mydb.unbind('coreA', 'f')
+        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        result_without_f=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
+                        ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
+                        ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
+                        ('compartmentA', 'coreA', 'c', 'e', 'RPR', 2, 2),
+                        ('compartmentA', 'coreA', 'e', 'g', 'RPR', 3, 1),
+                        ('compartmentA', 'coreA', 'e', 'j', 'RPR', 3, 2),
+                        ('compartmentA', 'coreA', 'g', 'h', 'RPR', 4, 1),
+                        ('compartmentA', 'coreA', 'g', 'i', 'RPR', 4, 2)]
+        self.assertEquals(resultFetched, result_without_f)
+
+    def test_unbind_g(self):
+        self.mydb.unbind('coreA', 'g')
+        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        result_without_g=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
+                        ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
+                        ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
+                        ('compartmentA', 'coreA', 'c', 'e', 'RPR', 2, 2),
+                        ('compartmentA', 'coreA', 'c', 'f', 'RPR', 2, 3),
+                        ('compartmentA', 'coreA', 'e', 'j', 'RPR', 3, 2)]
+        self.assertEquals(resultFetched, result_without_g)
+
+    def test_unbind_h(self):
+        self.mydb.unbind('coreA', 'h')
+        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        result_without_h=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
+                        ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
+                        ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
+                        ('compartmentA', 'coreA', 'c', 'e', 'RPR', 2, 2),
+                        ('compartmentA', 'coreA', 'c', 'f', 'RPR', 2, 3),
+                        ('compartmentA', 'coreA', 'e', 'g', 'RPR', 3, 1),
+                        ('compartmentA', 'coreA', 'e', 'j', 'RPR', 3, 2),
+                        ('compartmentA', 'coreA', 'g', 'i', 'RPR', 4, 2)]
+        self.assertEquals(resultFetched, result_without_h)
+
+    def test_unbind_i(self):
+        self.mydb.unbind('coreA', 'i')
+        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        result_without_i=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
+                        ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
+                        ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
+                        ('compartmentA', 'coreA', 'c', 'e', 'RPR', 2, 2),
+                        ('compartmentA', 'coreA', 'c', 'f', 'RPR', 2, 3),
+                        ('compartmentA', 'coreA', 'e', 'g', 'RPR', 3, 1),
+                        ('compartmentA', 'coreA', 'e', 'j', 'RPR', 3, 2),
+                        ('compartmentA', 'coreA', 'g', 'h', 'RPR', 4, 1)]
+
+        self.assertEquals(resultFetched, result_without_i)
 
