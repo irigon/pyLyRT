@@ -2,3 +2,4 @@
 omit =
     */ctypes/*
     */virtualenv/*
+    */runtime_lib/*

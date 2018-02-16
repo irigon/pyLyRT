@@ -5,7 +5,7 @@ import sys, os
 
 sys.path.insert(0, os.path.abspath('.'))
 from app import company_example as ce
-from libs import db
+from libs import reg
 from libs import rop
 from libs import g
 
@@ -14,19 +14,19 @@ db_name = 'roles_db'
 class TestDB(unittest.TestCase):
 
     def setUp(self):
-        self.mydb = db.DB(db_name)
+        self.myreg = reg.Reg(db_name)
         self.mock_objs = {}
 
 
     def tearDown(self):
-        self.mydb.dbconn.close()
+        self.myreg.conn.close()
 
     def test_db_creation(self):
         args = "CompartmentId text, CorePlayerId text, PlayerId text, RoleId text, RelationType text, " \
                "BindingLevel integer, BindingSequence integer"
-        mydb = db.DB('tmp_db')
-        self.assertTrue(mydb.dbconn is not None)
-        mydb.dbconn.close()
+        mydb = reg.Reg('tmp_db')
+        self.assertTrue(mydb.conn is not None)
+        mydb.conn.close()
 
     # update levels and sequences
     def test_db_insert_valid_relation(self):
@@ -35,21 +35,21 @@ class TestDB(unittest.TestCase):
                 ('company', 'ely'    , 'ely'      , 'freelance' , 'PPR', 1, 1),
                 ('company', 'ely'    , 'freelance', 'taxpayer'  , 'RPR', 2, 1),
                 ('tax'    , 'company', 'company'  , 'taxpayer'  , 'PPR', 1, 1)]
-        self.mydb.dbconn.executemany('INSERT INTO {} VALUES(?, ?, ?, ?, ?, ?, ?)'.format(db_name), rows)
+        self.myreg.conn.executemany('INSERT INTO {} VALUES(?, ?, ?, ?, ?, ?, ?)'.format(db_name), rows)
 
-        num_rows =  self.mydb.dbconn.execute('select count(*) from roles_db')
+        num_rows =  self.myreg.conn.execute('select count(*) from roles_db')
         self.assertEqual(num_rows.fetchone()[0], 5)
 
     @raises(OperationalError) # last field missing
     def test_db_insert_missing_fields_invalid_relation(self):
-        self.mydb.dbconn.execute("INSERT INTO roles_db VALUES('company', 'ely', 'ely' , \
+        self.myreg.conn.execute("INSERT INTO roles_db VALUES('company', 'ely', 'ely' , \
                                                               'freelance', 'PPR', 1)")
 
     @raises(IntegrityError) # on the first line, the last field is a string; on the second, the first is a number.
     def test_db_insert_invalid_type(self):
-        self.mydb.dbconn.execute("INSERT INTO roles_db VALUES('company', 'ely', 'ely' , \
+        self.myreg.conn.execute("INSERT INTO roles_db VALUES('company', 'ely', 'ely' , \
                                                               'freelance', 'PPR', 1, 'me')")
-        self.mydb.dbconn.execute("INSERT INTO roles_db VALUES(1, 'ely', 'ely' , \
+        self.myreg.conn.execute("INSERT INTO roles_db VALUES(1, 'ely', 'ely' , \
                                                               'freelance', 'PPR', 1, 1)")
 
 
@@ -98,8 +98,8 @@ class TestDB(unittest.TestCase):
         return(rows, self.mock_objs)
 
     def feed_db_and_select_ordered(self, rows):
-        self.mydb.dbconn.executemany('INSERT INTO roles_db VALUES(?, ?, ?, ?, ?, ?, ?)', rows)
-        ordered_list = self.mydb.dbconn.execute('SELECT * FROM ' + db_name + \
+        self.myreg.conn.executemany('INSERT INTO roles_db VALUES(?, ?, ?, ?, ?, ?, ?)', rows)
+        ordered_list = self.myreg.conn.execute('SELECT * FROM ' + db_name + \
                                             ' order by BindingLevel DESC,BindingSequence DESC')
         return ordered_list
 
@@ -154,7 +154,7 @@ class TestDB(unittest.TestCase):
     #def test_db_valid_bind_person_to_company(self):
     #    company = ce.Company(1000, id='company')
     #    pedro = ce.Person('bob', 10, id='bob')
-    #    self.mydb.bind(company, pedro)
+    #    self.myreg.bind(company, pedro)
     #
     #   self.assertEquals(len(company.players), 1)
     #    self.assertTrue(pedro.uuid in company.players)
@@ -163,8 +163,8 @@ class TestDB(unittest.TestCase):
         company = ce.Company(100000, id='company')
         bob = ce.Person('bob', 10000, id='bob')
         developer = ce.Developer(100, id='developer')
-        self.mydb.bind(company, bob, bob, developer, 'PPR')
-        line = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()[0]
+        self.myreg.bind(company, bob, bob, developer, 'PPR')
+        line = self.myreg.conn.execute("SELECT * FROM {} ".format(self.myreg.name)).fetchall()[0]
         self.assertEquals(('company', 'bob', 'bob', 'developer', 'PPR', 1, 1), line)
 
     def test_second_bind_role_to_person(self):
@@ -172,11 +172,11 @@ class TestDB(unittest.TestCase):
         bob = ce.Person('bob', 10000, id='bob')
         developer = ce.Developer(100, id='developer')
         accountant = ce.Accountant(100, id='accountant')
-        self.mydb.bind(company, bob, bob, developer, 'PPR')
-        self.mydb.bind(company, bob, bob, accountant, 'PPR')
-        line = self.mydb.dbconn.execute("SELECT * FROM {} WHERE CorePlayerId='{}' and PlayerId='{}' \
+        self.myreg.bind(company, bob, bob, developer, 'PPR')
+        self.myreg.bind(company, bob, bob, accountant, 'PPR')
+        line = self.myreg.conn.execute("SELECT * FROM {} WHERE CorePlayerId='{}' and PlayerId='{}' \
                                         order by BindingLevel DESC,BindingSequence DESC".format \
-                                         (self.mydb.name, bob.uuid, bob.uuid)).fetchall()[0]
+                                         (self.myreg.name, bob.uuid, bob.uuid)).fetchall()[0]
         self.assertEquals(('company', 'bob', 'bob', 'accountant', 'PPR', 1, 2), line)
 
     def test_second_bind_roles_as_in_paper(self):
@@ -188,14 +188,14 @@ class TestDB(unittest.TestCase):
         accountant = ce.Accountant(100, id='accountant')
         freelance = ce.Freelance(100, id='freelance')
         taxpayer = ce.TaxPayer(id='taxpayer')
-        self.mydb.bind(company, bob, bob, developer, 'PPR')
-        self.mydb.bind(company, bob, bob, accountant, 'PPR')
-        self.mydb.bind(company, ely, ely, freelance, 'PPR')
-        self.mydb.bind(company, ely, freelance, taxpayer, 'RPR')
-        self.mydb.bind(company, company, company, taxpayer, 'PPR')
-        table = self.mydb.dbconn.execute("SELECT * FROM {}  \
+        self.myreg.bind(company, bob, bob, developer, 'PPR')
+        self.myreg.bind(company, bob, bob, accountant, 'PPR')
+        self.myreg.bind(company, ely, ely, freelance, 'PPR')
+        self.myreg.bind(company, ely, freelance, taxpayer, 'RPR')
+        self.myreg.bind(company, company, company, taxpayer, 'PPR')
+        table = self.myreg.conn.execute("SELECT * FROM {}  \
                                         order by BindingLevel DESC,BindingSequence DESC".format \
-                                         (self.mydb.name)).fetchall()
+                                         (self.myreg.name)).fetchall()
 
         table_goal= [('company', 'ely', 'freelance', 'taxpayer', 'RPR', 2, 1),
                     ('company', 'bob', 'bob', 'accountant', 'PPR', 1, 2),
@@ -226,7 +226,7 @@ class TestFindNextLevel(unittest.TestCase):
 
 
     def setUp(self):
-        self.mydb = db.DB(db_name)
+        self.myreg = reg.Reg(db_name)
 
         rows = [('company', 'a', 'a', 'b', 'PPR', 1, 1),
                 ('company', 'a', 'a', 'c', 'PPR', 1, 2),
@@ -237,32 +237,32 @@ class TestFindNextLevel(unittest.TestCase):
                 ('company', 'a', 'g', 'h', 'RPR', 4, 1),
                 ('company', 'a', 'g', 'i', 'RPR', 4, 2),
                 ('company', 'a', 'f', 'j', 'RPR', 3, 2)]
-        self.mydb.dbconn.executemany('INSERT INTO {} VALUES(?, ?, ?, ?, ?, ?, ?)'.format(db_name), rows)
+        self.myreg.conn.executemany('INSERT INTO {} VALUES(?, ?, ?, ?, ?, ?, ?)'.format(db_name), rows)
 
     def test_add_role_to_core(self):
-        self.assertEquals(self.mydb.find_next_level_and_sequence('a', 'a', 'X', 'PPR'), (1,3))
+        self.assertEquals(self.myreg.find_next_level_and_sequence('a', 'a', 'X', 'PPR'), (1, 3))
 
     def test_add_role_to_role_at_tree_begin(self):
-        self.assertEquals(self.mydb.find_next_level_and_sequence('a', 'b', 'X', 'RPR'), (2,4))
+        self.assertEquals(self.myreg.find_next_level_and_sequence('a', 'b', 'X', 'RPR'), (2, 4))
 
     def test_add_role_to_role_at_tree_leaf(self):
-        self.assertEquals(self.mydb.find_next_level_and_sequence('a', 'c', 'X', 'RPR'), (2,4))
+        self.assertEquals(self.myreg.find_next_level_and_sequence('a', 'c', 'X', 'RPR'), (2, 4))
 
     def test_add_role_to_role_when_the_next_level_does_not_exist_beginning(self):
-        self.assertEquals(self.mydb.find_next_level_and_sequence('a', 'h', 'X', 'RPR'), (5,1))
+        self.assertEquals(self.myreg.find_next_level_and_sequence('a', 'h', 'X', 'RPR'), (5, 1))
 
     def test_add_role_to_role_when_the_next_level_does_not_exist_leaf(self):
-        self.assertEquals(self.mydb.find_next_level_and_sequence('a', 'i', 'X', 'RPR'), (5,1))
+        self.assertEquals(self.myreg.find_next_level_and_sequence('a', 'i', 'X', 'RPR'), (5, 1))
 
     def test_add_first_role(self):
-        self.assertEquals(self.mydb.find_next_level_and_sequence('A', 'A', 'X', 'PPR'), (1,1))
+        self.assertEquals(self.myreg.find_next_level_and_sequence('A', 'A', 'X', 'PPR'), (1, 1))
 
     @raises(IndexError)
     def test_throw_exception_when_RPR_on_core_obj(self):
-        self.mydb.find_next_level_and_sequence('A', 'A', 'X', 'RPR')
+        self.myreg.find_next_level_and_sequence('A', 'A', 'X', 'RPR')
 
     def tearDown(self):
-        self.mydb.dbconn.close()
+        self.myreg.conn.close()
 
 
 class TestUnbind(unittest.TestCase):
@@ -346,7 +346,7 @@ class TestUnbind(unittest.TestCase):
 
 
     def setUp(self):
-        self.mydb = db.DB(db_name)
+        self.myreg = reg.Reg(db_name)
         ca = self.C_A()
         pa = self.P_A()
         rb = self.R_B()
@@ -358,15 +358,15 @@ class TestUnbind(unittest.TestCase):
         rh = self.R_H()
         ri = self.R_I()
         rj = self.R_J()
-        self.mydb.bind(ca, pa, pa, rb, 'PPR')
-        self.mydb.bind(ca, pa, pa, rc, 'PPR')
-        self.mydb.bind(ca, pa, rc, rd, 'RPR')
-        self.mydb.bind(ca, pa, rc, re, 'RPR')
-        self.mydb.bind(ca, pa, rc, rf, 'RPR')
-        self.mydb.bind(ca, pa, re, rg, 'RPR')
-        self.mydb.bind(ca, pa, re, rj, 'RPR')
-        self.mydb.bind(ca, pa, rg, rh, 'RPR')
-        self.mydb.bind(ca, pa, rg, ri, 'RPR')
+        self.myreg.bind(ca, pa, pa, rb, 'PPR')
+        self.myreg.bind(ca, pa, pa, rc, 'PPR')
+        self.myreg.bind(ca, pa, rc, rd, 'RPR')
+        self.myreg.bind(ca, pa, rc, re, 'RPR')
+        self.myreg.bind(ca, pa, rc, rf, 'RPR')
+        self.myreg.bind(ca, pa, re, rg, 'RPR')
+        self.myreg.bind(ca, pa, re, rj, 'RPR')
+        self.myreg.bind(ca, pa, rg, rh, 'RPR')
+        self.myreg.bind(ca, pa, rg, ri, 'RPR')
 
         ## basically load the classes to g
         for player in [pa]:
@@ -388,16 +388,16 @@ class TestUnbind(unittest.TestCase):
                         ('compartmentA', 'coreA', 'g', 'h', 'RPR', 4, 1),
                         ('compartmentA', 'coreA', 'g', 'i', 'RPR', 4, 2)]
 
-        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        resultFetched = self.myreg.conn.execute("SELECT * FROM {} ".format(self.myreg.name)).fetchall()
         # assure the table is right. If something change the test should fail
         self.assertEquals(self.wholeTable, resultFetched)
 
     def tearDown(self):
-        self.mydb.dbconn.close()
+        self.myreg.conn.close()
 
     def test_unbind_b(self):
-        self.mydb.unbind('coreA', 'b')
-        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        self.myreg.unbind('coreA', 'b')
+        resultFetched = self.myreg.conn.execute("SELECT * FROM {} ".format(self.myreg.name)).fetchall()
         result_without_b=[('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
                         ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
                         ('compartmentA', 'coreA', 'c', 'e', 'RPR', 2, 2),
@@ -409,14 +409,14 @@ class TestUnbind(unittest.TestCase):
         self.assertEquals(resultFetched, result_without_b)
 
     def test_unbind_c(self):
-        self.mydb.unbind('coreA', 'c')
-        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        self.myreg.unbind('coreA', 'c')
+        resultFetched = self.myreg.conn.execute("SELECT * FROM {} ".format(self.myreg.name)).fetchall()
         result_without_b=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1)]
         self.assertEquals(resultFetched, result_without_b)
 
     def test_unbind_d(self):
-        self.mydb.unbind('coreA', 'd')
-        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        self.myreg.unbind('coreA', 'd')
+        resultFetched = self.myreg.conn.execute("SELECT * FROM {} ".format(self.myreg.name)).fetchall()
         result_without_d=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
                         ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
                         ('compartmentA', 'coreA', 'c', 'e', 'RPR', 2, 2),
@@ -428,8 +428,8 @@ class TestUnbind(unittest.TestCase):
         self.assertEquals(resultFetched, result_without_d)
 
     def test_unbind_e(self):
-        self.mydb.unbind('coreA', 'e')
-        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        self.myreg.unbind('coreA', 'e')
+        resultFetched = self.myreg.conn.execute("SELECT * FROM {} ".format(self.myreg.name)).fetchall()
         result_without_e=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
                         ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
                         ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
@@ -438,8 +438,8 @@ class TestUnbind(unittest.TestCase):
         self.assertEquals(resultFetched, result_without_e)
 
     def test_unbind_f(self):
-        self.mydb.unbind('coreA', 'f')
-        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        self.myreg.unbind('coreA', 'f')
+        resultFetched = self.myreg.conn.execute("SELECT * FROM {} ".format(self.myreg.name)).fetchall()
         result_without_f=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
                         ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
                         ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
@@ -451,8 +451,8 @@ class TestUnbind(unittest.TestCase):
         self.assertEquals(resultFetched, result_without_f)
 
     def test_unbind_g(self):
-        self.mydb.unbind('coreA', 'g')
-        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        self.myreg.unbind('coreA', 'g')
+        resultFetched = self.myreg.conn.execute("SELECT * FROM {} ".format(self.myreg.name)).fetchall()
         result_without_g=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
                         ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
                         ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
@@ -462,8 +462,8 @@ class TestUnbind(unittest.TestCase):
         self.assertEquals(resultFetched, result_without_g)
 
     def test_unbind_h(self):
-        self.mydb.unbind('coreA', 'h')
-        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        self.myreg.unbind('coreA', 'h')
+        resultFetched = self.myreg.conn.execute("SELECT * FROM {} ".format(self.myreg.name)).fetchall()
         result_without_h=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
                         ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
                         ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),
@@ -475,8 +475,8 @@ class TestUnbind(unittest.TestCase):
         self.assertEquals(resultFetched, result_without_h)
 
     def test_unbind_i(self):
-        self.mydb.unbind('coreA', 'i')
-        resultFetched = self.mydb.dbconn.execute("SELECT * FROM {} ".format(self.mydb.name)).fetchall()
+        self.myreg.unbind('coreA', 'i')
+        resultFetched = self.myreg.conn.execute("SELECT * FROM {} ".format(self.myreg.name)).fetchall()
         result_without_i=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
                         ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
                         ('compartmentA', 'coreA', 'c', 'd', 'RPR', 2, 1),

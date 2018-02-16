@@ -49,6 +49,7 @@ class TaxDepartment(rop.Compartment):
     def __init__(self, revenue, id=None):
         self.uuid = uuid.uuid1() if id is None else id
         self.players={} # this should be probably and attribute of the father class compartment
+        super().__init__()
 
     def getRevenue(self):
         pass
@@ -65,6 +66,7 @@ class Freelance(rop.Role):
         self.tax = tax
         self.uuid = uuid.uuid1() if id is None else id
         self.roles = {}
+        super().__init__()
 
     def earn(self, amount):
         pass
@@ -77,6 +79,7 @@ class TaxEmployee(rop.Role):
 
     def __init__(self, id=None):
         self.uuid = uuid.uuid1() if id is None else id
+        super().__init__()
 
     def collectTax(self):
         pass
@@ -86,9 +89,10 @@ class TaxPayer(rop.Role):
 
     def __init__(self, id=None):
         self.uuid = uuid.uuid1() if id is None else id
+        super().__init__()
 
     def pay(self):
-        pass
+        print('Allright... taxes taxes')
 
 class Developer(rop.Role):
     classtype = 'developer'
@@ -96,12 +100,16 @@ class Developer(rop.Role):
     def __init__(self, salary, id=None):
         self.salary = salary
         self.uuid = uuid.uuid1() if id is None else id
+        super().__init__()
 
     def getPaid(self):
         pass
 
     def work(self):
-        pass
+        print('Typing like I could program...')
+
+    def pay(self):
+        print('I just pay for coffee')
 
 class Accountant(rop.Role):
     classtype = 'accountant'
@@ -109,6 +117,7 @@ class Accountant(rop.Role):
     def __init__(self, salary, id=None):
         self.salary = salary
         self.uuid = uuid.uuid1() if id is None else id
+        super().__init__()
 
     def paySalary(self):
         pass
