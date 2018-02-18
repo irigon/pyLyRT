@@ -2,6 +2,8 @@ import unittest
 import time
 import sys, os
 from importlib import reload
+from tests import helpers
+
 
 sys.path.insert(0, os.path.abspath('.'))
 from nose.tools import raises
@@ -41,36 +43,19 @@ valid_python_code_2='''class NewClass2:
         print('Doug class plays method')
 '''
 
-
-def create_file(mytext, filepath):
-    try:
-        os.remove(filepath)
-    except OSError:
-        pass
-    with open(filepath, 'w') as f:
-        f.write(mytext)
-
 class TestMonitor(unittest.TestCase):
 
     def setUp(self):
         from libs import g
         self.g = reload(g)
         self.filepath = os.path.abspath('.') + '/runtime_lib/test0.py'
-        self.remove_tmp_files()
+        helpers.remove_tmp_files()
 
         from libs.monitor import start_monitor_thread
         self.monitor = start_monitor_thread('runtime_lib')
 
     def tearDown(self):
-        self.remove_tmp_files()
-
-    def remove_tmp_files(self):
-        for i in ['test0.py', 'test1.py', 'test2.xx']:
-            tmppath=os.path.abspath('.') + '/runtime_lib/' + i
-            try:
-                os.remove(tmppath)
-            except OSError:
-                pass
+        helpers.remove_tmp_files()
 
     # verify if the thread runs
     def test_start_monitor(self):
@@ -79,29 +64,30 @@ class TestMonitor(unittest.TestCase):
 
     # create an invalid file with extension .py under /runtime_lib
     # verify that the code does not break
+    @raises
     def test_invalid_input_code(self):
-        create_file(invalid_python_code, self.filepath)
+        helpers.create_file(invalid_python_code, self.filepath)
         time.sleep(0.5)
         self.assertTrue(self.monitor.is_alive() == True)
 
     # create a valid file with extention .py under /runtime_lib
     # verify that the code is loaded to g.nspace
     def test_valid_input_code(self):
-        create_file(valid_python_code_1, self.filepath)
+        helpers.create_file(valid_python_code_1, self.filepath)
         time.sleep(0.2)
         self.assertTrue(self.monitor.is_alive() == True)
         ns_size = len(self.g.nspace)
         self.assertEqual(ns_size, 1)
 
     def test_reload_code(self):
-        create_file(valid_python_code_1, 'runtime_lib/test1.py')
-        create_file(valid_python_code_2, 'runtime_lib/test1.py')
+        helpers.create_file(valid_python_code_1, 'runtime_lib/test1.py')
+        helpers.create_file(valid_python_code_2, 'runtime_lib/test1.py')
         time.sleep(0.2)
         self.assertTrue(self.monitor.is_alive() == True)
 
 
     def test_ignore_files_with_extension_other_then_py(self):
-        create_file(valid_python_code_1, 'runtime_lib/test2.xx')
+        helpers.create_file(valid_python_code_1, 'runtime_lib/test2.xx')
         time.sleep(0.2)
         self.assertTrue(self.monitor.is_alive() == True)
         self.assertEqual(len(self.g.nspace), 0)

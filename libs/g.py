@@ -6,5 +6,6 @@ global nspace
 roles={}
 players={}
 compartments={}
+roles_played_by={}
 
 nspace={}

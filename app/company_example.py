@@ -66,7 +66,7 @@ class Freelance(rop.Role):
         self.tax = tax
         self.uuid = uuid.uuid1() if id is None else id
         self.roles = {}
-        super().__init__()
+        super().__init__(self.uuid)
 
     def earn(self, amount):
         pass
@@ -79,7 +79,7 @@ class TaxEmployee(rop.Role):
 
     def __init__(self, id=None):
         self.uuid = uuid.uuid1() if id is None else id
-        super().__init__()
+        super().__init__(self.uuid)
 
     def collectTax(self):
         pass
@@ -89,7 +89,7 @@ class TaxPayer(rop.Role):
 
     def __init__(self, id=None):
         self.uuid = uuid.uuid1() if id is None else id
-        super().__init__()
+        super().__init__(self.uuid)
 
     def pay(self):
         print('Allright... taxes taxes')
@@ -100,7 +100,7 @@ class Developer(rop.Role):
     def __init__(self, salary, id=None):
         self.salary = salary
         self.uuid = uuid.uuid1() if id is None else id
-        super().__init__()
+        super().__init__(self.uuid)
 
     def getPaid(self):
         pass
@@ -110,6 +110,7 @@ class Developer(rop.Role):
 
     def pay(self):
         print('I just pay for coffee')
+        return 1.2
 
 class Accountant(rop.Role):
     classtype = 'accountant'
@@ -117,7 +118,7 @@ class Accountant(rop.Role):
     def __init__(self, salary, id=None):
         self.salary = salary
         self.uuid = uuid.uuid1() if id is None else id
-        super().__init__()
+        super().__init__(self.uuid)
 
     def paySalary(self):
         pass

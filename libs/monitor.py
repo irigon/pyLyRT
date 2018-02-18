@@ -3,7 +3,7 @@ import importlib
 import threading
 import os
 import sys
-
+import inspect
 from libs import g
 
 def start_monitor_thread(path_to_runtime_lib):
@@ -41,12 +41,19 @@ class Monitor(threading.Thread):
                                 else:
                                     i = importlib.import_module(module_name)
                             except Exception as ex:
+                                print('Module could not be imported, {}'.format(ex))
                                 i = None
 
                             if i is not None:
-                                c = {x: y for x, y in i.__dict__.items() if not x.startswith('__')}
-                                g.nspace.update(c)
-
+                                #c = {x: y for x, y in i.__dict__.items() if not x.startswith('__')}
+                                #g.nspace.update(c)
+                                classes = [ getattr(i, name) for name in dir(i) if inspect.isclass(getattr(i, name)) ]
+                                for c in classes:
+                                    myinstance = c()
+                                    if getattr(myinstance, 'uuid', None):
+                                        if myinstance.uuid in g.roles_played_by:
+                                            for core in g.roles_played_by[myinstance.uuid]:
+                                                core.roles[myinstance.uuid]=myinstance
                         if flag.name == 'DELETE':
                             # TODO: handle unload from roles / modules
                             pass
