@@ -34,11 +34,13 @@ invalid_python_code= '''class Doug:
 '''
 
 valid_python_code_1='''class DougValid:
+    classtype="DougValid"
     def play():
         print('Doug valid class plays method')
 '''
 
 valid_python_code_2='''class NewClass2:
+    classtype="DougValid"
     def plays():
         print('Doug class plays method')
 '''
@@ -70,14 +72,14 @@ class TestMonitor(unittest.TestCase):
         time.sleep(0.5)
         self.assertTrue(self.monitor.is_alive() == True)
 
+    # @the object is not held in g.nspace anymore, therefore this test makes less sense
     # create a valid file with extention .py under /runtime_lib
     # verify that the code is loaded to g.nspace
-    def test_valid_input_code(self):
-        helpers.create_file(valid_python_code_1, self.filepath)
-        time.sleep(0.2)
-        self.assertTrue(self.monitor.is_alive() == True)
-        ns_size = len(self.g.nspace)
-        self.assertEqual(ns_size, 1)
+    #def test_valid_input_code(self):
+    #    helpers.create_file(valid_python_code_1, self.filepath)
+    #    time.sleep(0.2)
+    #    self.assertTrue(self.monitor.is_alive() == True)
+    #    self.assertEqual(ns_size, 1)
 
     def test_reload_code(self):
         helpers.create_file(valid_python_code_1, 'runtime_lib/test1.py')

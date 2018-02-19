@@ -2,6 +2,7 @@ import os
 
 def create_file(mytext, filepath):
     try:
+        pass
         os.remove(filepath)
     except OSError:
         pass
@@ -13,6 +14,7 @@ def remove_tmp_files():
         tmppath=os.path.abspath('.') + '/runtime_lib/' + i
         try:
             os.remove(tmppath)
+
         except OSError:
             pass
 

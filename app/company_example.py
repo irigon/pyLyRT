@@ -2,15 +2,6 @@ from libs import g
 from libs import rop
 import uuid
 
-class Decorate:
-    def __init__(self, f):
-        self.f = f
-
-    def __call__(self, *args, **kwargs):
-        print('Passei aqui')
-        self.f(self, *args, **kwargs)
-
-
 ############################### -- CORE CLASSES
 class Person(rop.Player):
     classtype = 'person'
@@ -21,10 +12,6 @@ class Person(rop.Player):
         self.roles={}   # this should be probably and attribute of the father class player
         self.uuid = uuid.uuid1() if id is None else id
         super().__init__()
-
-    @Decorate
-    def scream(self):
-        print('yaueee!!!')
 
 ############################### -- COMPARTMENT CLASSES
 class Company(rop.Compartment):
@@ -92,7 +79,7 @@ class TaxPayer(rop.Role):
         super().__init__(self.uuid)
 
     def pay(self):
-        print('Allright... taxes taxes')
+        print('Paying taxes')
 
 class Developer(rop.Role):
     classtype = 'developer'
@@ -100,17 +87,22 @@ class Developer(rop.Role):
     def __init__(self, salary, id=None):
         self.salary = salary
         self.uuid = uuid.uuid1() if id is None else id
+        self.savings=0
         super().__init__(self.uuid)
 
     def getPaid(self):
-        pass
+        self.savings=self.savings+self.salary
+        print('receiving money')
 
     def work(self):
-        print('Typing like I could program...')
+        print('work the whole month...')
 
     def pay(self):
-        print('I just pay for coffee')
+        print('Paying coffee')
         return 1.2
+
+    def show_savings(self):
+        return 'So far I saved {}'.format(self.savings)
 
 class Accountant(rop.Role):
     classtype = 'accountant'
@@ -122,13 +114,3 @@ class Accountant(rop.Role):
 
     def paySalary(self):
         pass
-
-## basically load the classes to g
-for player in [Person]:
-    g.players[player.classtype]=player
-
-for compartment in [Company, TaxDepartment]:
-    g.compartments[compartment.classtype]=compartment
-
-for role in [Freelance, TaxEmployee, Developer, Accountant]:
-    g.roles[role.classtype]=role

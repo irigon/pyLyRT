@@ -24,8 +24,10 @@ myreg.invokeRole(company, bob, 'pay')
 
 
 while True:
-    time.sleep(0.1)
-    myreg.invokeRole(company, bob, 'pay')
+    time.sleep(1)
+    myreg.invokeRole(company, bob, 'work')
+    myreg.invokeRole(company, bob, 'getPaid')
+    print('Hi, I am {}. {}'.format(bob.name, myreg.invokeRole(company, bob, 'show_savings')))
 
 
 
