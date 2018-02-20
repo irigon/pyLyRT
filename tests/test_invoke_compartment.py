@@ -10,11 +10,13 @@ from importlib import reload
 class TestInvokeCompartment(unittest.TestCase):
 
     def setUp(self):
-        self.dbname = 'tmpDB'
-        self.myreg = reg.Reg(self.dbname)
-
         from libs import g
         self.g = reload(g)
+        from libs import monitor
+        self.m = reload(monitor)
+
+        self.dbname = 'tmpDB'
+        self.myreg = reg.Reg(self.dbname)
 
     def tearDown(self):
         helpers.remove_tmp_files()
@@ -57,25 +59,24 @@ class Developer(rop.Role):
         print('I just pay for golden coffee')
         return 20
 '''
-        from libs.monitor import start_monitor_thread
-        self.monitor = start_monitor_thread('runtime_lib')
+        self.monitor = self.m.start_monitor_thread('runtime_lib', self.myreg)
 
         filepath = os.path.abspath('.') + '/runtime_lib/test0.py'
 
         company = ce.Company(100000, id='company')
         bob = ce.Person('bob', 10000, id='bob')
         alice = ce.Person('alice', 10000, id='alice')
-        self.g.nspace['developer'] = ce.Developer(100, id='developer')
-
-        self.myreg.bind(company, bob, bob, self.g.nspace['developer'], 'PPR')
+        self.myreg.add_role(ce.Developer)
+        bob_developer = self.g.nspace['developer'](100, id='developer')
+        self.myreg.bind(company, bob, bob, bob_developer, 'PPR')
         self.assertEquals(1.2, self.myreg.invokeRole(company, bob, 'pay'))
 
         # create file
         helpers.create_file(self.new_role, filepath)
         time.sleep(0.2)
         # alice will be bound to the "new" role, that pays 20 per coffee
-
-        self.myreg.bind(company, alice, alice, self.g.nspace['developer'], 'PPR')
+        alice_developer = self.g.nspace['developer'](100, id='developer')
+        self.myreg.bind(company, alice, alice, alice_developer, 'PPR')
         self.assertEquals(20, self.myreg.invokeRole(company, alice, 'pay'))
 
     def test_update_role_with_state(self):
@@ -111,14 +112,14 @@ class Developer(rop.Role):
         return 'My savings_method (version 2) {}'.format(self.savings)
 
 '''
-        from libs.monitor import start_monitor_thread
-        self.monitor = start_monitor_thread('runtime_lib')
+        self.monitor = self.m.start_monitor_thread('runtime_lib', self.myreg)
 
         filepath = os.path.abspath('.') + '/runtime_lib/test1.py'
-
+        print(' ------------ test_update_role_with_state')
         company = ce.Company(100000, id='company')
         bob = ce.Person('bob', 10000, id='bob')
         dev = ce.Developer(salary=1000, id='developer')
+        self.myreg.add_role(ce.Developer)
         self.myreg.bind(company, bob, bob, dev, 'PPR')
         self.assertEquals(bob.roles['developer'].savings, 0)
 
@@ -132,6 +133,7 @@ class Developer(rop.Role):
 
         # bob still have the same money into his savings:
         self.assertEquals(bob.roles['developer'].savings, curr_salary)
+        print('verificou salario')
 
         # bob was bound to the "new" role, that pays his old salary + 100 bucks
         self.myreg.invokeRole(company, bob, 'getPaid')

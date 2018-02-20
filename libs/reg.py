@@ -1,6 +1,11 @@
 import sqlite3
-
-from libs import g
+import inspect
+import sys
+import importlib
+import hashlib
+import _pickle as pickle
+#import json
+import libs
 
 
 db_args = "CompartmentId text CHECK(TYPEOF(CompartmentId) = 'text'), " \
@@ -70,15 +75,6 @@ class Reg:
     # TODO: when creating a player, it must have a attribute name
     # TODO: when creating a core, it must have a dictionary of players
     def bind(self, compartment, core, player, role, relationType):
-        if role.uuid in player.roles:
-            raise AttributeError ("A player shall not play twice the same role")
-        if core.classtype in g.players:
-            if core.type != player.type and player.classtype not in g.roles:
-                raise AttributeError ("A player of a player (as core) is either itself or a role")
-        if core.classtype in g.compartments:
-            if core.classtype not in g.players and core.classtype not in g.compartments:
-                raise AttributeError ("A player of a compartment (as core) must be either a player or a compartment")
-
         newIdx = self.find_next_level_and_sequence(core.uuid, player.uuid, role.uuid, relationType)
         self.add_relation(compartment.uuid, core.uuid, player.uuid, role.uuid, relationType, newIdx[0], newIdx[1])
 
@@ -88,9 +84,9 @@ class Reg:
         # be called. Putting this role bound to the core through its uuid allows us to call it directly, as soon
         # as the context that should call the method is found.
         core.roles[role.uuid]=role
-        if role.uuid not in g.roles_played_by:
-            g.roles_played_by[role.uuid]=[]
-        g.roles_played_by[role.uuid].append(core)
+        if role.uuid not in libs.g.roles_played_by:
+            libs.g.roles_played_by[role.uuid]=[]
+        libs.g.roles_played_by[role.uuid].append(core)
 
 
     # we probably have to consider a core can not run the same context concurrently in two different contexts (RPR)
@@ -116,7 +112,7 @@ class Reg:
             queue.extend([x[3] for x in result])
             result = self.conn.execute("DELETE FROM {} WHERE CorePlayerId='{}' and PlayerId='{}'". \
                                        format(self.name, core_id, role))
-            g.players[core_id].roles.pop(role, None)
+            #g.players[core_id].roles.pop(role, None)
 
 
 
@@ -136,3 +132,56 @@ class Reg:
 
         # otherwise, try to run in the core
         return getattr(ret, method)()
+
+    # nspace.roles stores the digest of the class of a role
+    # this is necessary, since inotify migh cause duplicated events for the same signal (WRITE_CLOSE)
+    # a duplicated update of a class would update twice every instance
+    # If the update is related to the last (say the Developer received 100+lastSalary), this would
+    # two updates would result in the developer receiving lastSalary+2*100
+
+    # https://askubuntu.com/questions/710422/why-do-inotify-events-fire-more-than-once
+    # the solution was to calculate a class signature from a md5 digest and store in the nspace['role_name']
+    # Before a new role be updated, if calculates the digest of signature and see if an update is needed.
+    # An update of a class with no changes will be then ignored.
+
+    def add_module(self, module_name):
+        pkg=None
+        try:
+            if module_name in sys.modules:
+                pkg = importlib.reload(sys.modules[module_name])
+            else:
+                pkg = importlib.import_module(module_name)
+        except Exception as ex:
+            print('Module could not be imported, {}'.format(ex))
+            pkg = None
+
+        if pkg is not None:
+            classes = [getattr(pkg, name) for name in dir(pkg)
+                       if inspect.isclass(getattr(pkg, name))]
+            for c in classes:
+                # inotify can cause duplicated events
+                duplicated = self.add_role(c)
+                if not duplicated:
+                    # if this role is being played by some core, update the core.
+                    if c.classtype in libs.g.roles_played_by:
+                        for core in libs.g.roles_played_by[c.classtype]:
+                            core.roles[c.classtype] = c(instance=core.roles[c.classtype])
+
+    def add_role(self, role):
+        if not inspect.isclass(role):
+            raise AttributeError
+
+        serialized_new=pickle.dumps(role, 2.3)
+        newclass_digest = hashlib.md5(serialized_new).digest()
+        print('Adding role {}, md5: {}'.format(role.classtype, newclass_digest))
+        if role.classtype in libs.g.nspace:
+            serialized_old = libs.g.nspace[role.classtype][1]
+            print("{}: hash old: {}, hash new: {}".format(role.classtype, serialized_old, newclass_digest))
+            if  serialized_old == newclass_digest:
+                print('duplicated: {}, {}, {}'.format(libs.g.nspace[role.classtype][0], role, libs.g.nspace[role.classtype]==role))
+                return True # new class is duplicated and will be ignored
+        else:
+            print('class nova... calma')
+        libs.g.nspace[role.classtype]=[role, newclass_digest]
+        print('hash old: {}'.format(libs.g.nspace[role.classtype]))
+        return False

@@ -48,13 +48,14 @@ valid_python_code_2='''class NewClass2:
 class TestMonitor(unittest.TestCase):
 
     def setUp(self):
-        from libs import g
+        from libs import g, reg
         self.g = reload(g)
         self.filepath = os.path.abspath('.') + '/runtime_lib/test0.py'
         helpers.remove_tmp_files()
+        self.myreg = reg.Reg('dumb_db')
 
         from libs.monitor import start_monitor_thread
-        self.monitor = start_monitor_thread('runtime_lib')
+        self.monitor = start_monitor_thread('runtime_lib', self.myreg)
 
     def tearDown(self):
         helpers.remove_tmp_files()
