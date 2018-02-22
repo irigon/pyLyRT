@@ -25,6 +25,7 @@ class Reg:
         self.conn.execute('CREATE INDEX search_order ON ' + self.name + ' \
                             (BindingLevel DESC, BindingSequence DESC)')
         self.obj_dict = {}
+        self.time=0
 
     def __del__(self):
         self.conn.close()
@@ -160,28 +161,13 @@ class Reg:
                        if inspect.isclass(getattr(pkg, name))]
             for c in classes:
                 # inotify can cause duplicated events
-                duplicated = self.add_role(c)
-                if not duplicated:
-                    # if this role is being played by some core, update the core.
-                    if c.classtype in libs.g.roles_played_by:
-                        for core in libs.g.roles_played_by[c.classtype]:
-                            core.roles[c.classtype] = c(instance=core.roles[c.classtype])
+                self.add_role(c)
+                # if this role is being played by some core, update the core.
+                if c.classtype in libs.g.roles_played_by:
+                    for core in libs.g.roles_played_by[c.classtype]:
+                        core.roles[c.classtype] = c(instance=core.roles[c.classtype])
 
     def add_role(self, role):
         if not inspect.isclass(role):
             raise AttributeError
-
-        serialized_new=pickle.dumps(role, 2.3)
-        newclass_digest = hashlib.md5(serialized_new).digest()
-        print('Adding role {}, md5: {}'.format(role.classtype, newclass_digest))
-        if role.classtype in libs.g.nspace:
-            serialized_old = libs.g.nspace[role.classtype][1]
-            print("{}: hash old: {}, hash new: {}".format(role.classtype, serialized_old, newclass_digest))
-            if  serialized_old == newclass_digest:
-                print('duplicated: {}, {}, {}'.format(libs.g.nspace[role.classtype][0], role, libs.g.nspace[role.classtype]==role))
-                return True # new class is duplicated and will be ignored
-        else:
-            print('class nova... calma')
-        libs.g.nspace[role.classtype]=[role, newclass_digest]
-        print('hash old: {}'.format(libs.g.nspace[role.classtype]))
-        return False
+        libs.g.nspace[role.classtype]=role

@@ -6,5 +6,10 @@ global roles_played_by
 nspace={}
 roles_played_by={}
 
+def clear():
+    global nspace
+    global roles_played_by
+    nspace={}
+    roles_played_by={}
 
 

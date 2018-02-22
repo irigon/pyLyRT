@@ -3,7 +3,8 @@ import time
 import sys, os
 from importlib import reload
 from tests import helpers
-
+from libs import g, reg
+from libs.monitor import start_monitor_thread
 
 sys.path.insert(0, os.path.abspath('.'))
 from nose.tools import raises
@@ -48,17 +49,18 @@ valid_python_code_2='''class NewClass2:
 class TestMonitor(unittest.TestCase):
 
     def setUp(self):
-        from libs import g, reg
-        self.g = reload(g)
         self.filepath = os.path.abspath('.') + '/runtime_lib/test0.py'
         helpers.remove_tmp_files()
         self.myreg = reg.Reg('dumb_db')
 
-        from libs.monitor import start_monitor_thread
         self.monitor = start_monitor_thread('runtime_lib', self.myreg)
 
     def tearDown(self):
         helpers.remove_tmp_files()
+        self.monitor.stop()
+        g.clear()
+
+
 
     # verify if the thread runs
     def test_start_monitor(self):
@@ -93,5 +95,5 @@ class TestMonitor(unittest.TestCase):
         helpers.create_file(valid_python_code_1, 'runtime_lib/test2.xx')
         time.sleep(0.2)
         self.assertTrue(self.monitor.is_alive() == True)
-        self.assertEqual(len(self.g.nspace), 0)
+        self.assertEqual(len(g.nspace), 0)
 

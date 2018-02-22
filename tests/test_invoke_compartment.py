@@ -1,27 +1,23 @@
 import unittest
 from libs import reg
 import app.company_example as ce
-from tests import helpers
 import os, time
 from importlib import reload
-
+from libs import monitor
+from libs import g
+from tests import helpers
 
 
 class TestInvokeCompartment(unittest.TestCase):
 
     def setUp(self):
-        from libs import g
-        self.g = reload(g)
-        from libs import monitor
-        self.m = reload(monitor)
-
         self.dbname = 'tmpDB'
         self.myreg = reg.Reg(self.dbname)
 
     def tearDown(self):
         helpers.remove_tmp_files()
         self.myreg.conn.close()
-
+        g.clear()
 
     # Create a user, a compartment and a role
     # call the role and verify that it worked
@@ -59,7 +55,7 @@ class Developer(rop.Role):
         print('I just pay for golden coffee')
         return 20
 '''
-        self.monitor = self.m.start_monitor_thread('runtime_lib', self.myreg)
+        self.monitor = monitor.start_monitor_thread('runtime_lib', self.myreg)
 
         filepath = os.path.abspath('.') + '/runtime_lib/test0.py'
 
@@ -67,7 +63,7 @@ class Developer(rop.Role):
         bob = ce.Person('bob', 10000, id='bob')
         alice = ce.Person('alice', 10000, id='alice')
         self.myreg.add_role(ce.Developer)
-        bob_developer = self.g.nspace['developer'](100, id='developer')
+        bob_developer = g.nspace['developer'](100, id='developer')
         self.myreg.bind(company, bob, bob, bob_developer, 'PPR')
         self.assertEquals(1.2, self.myreg.invokeRole(company, bob, 'pay'))
 
@@ -75,9 +71,12 @@ class Developer(rop.Role):
         helpers.create_file(self.new_role, filepath)
         time.sleep(0.2)
         # alice will be bound to the "new" role, that pays 20 per coffee
-        alice_developer = self.g.nspace['developer'](100, id='developer')
+        alice_developer = g.nspace['developer'](100, id='developer')
         self.myreg.bind(company, alice, alice, alice_developer, 'PPR')
         self.assertEquals(20, self.myreg.invokeRole(company, alice, 'pay'))
+
+        self.monitor.stop()
+
 
     def test_update_role_with_state(self):
         self.new_role = '''from libs import rop
@@ -112,9 +111,10 @@ class Developer(rop.Role):
         return 'My savings_method (version 2) {}'.format(self.savings)
 
 '''
-        self.monitor = self.m.start_monitor_thread('runtime_lib', self.myreg)
 
-        filepath = os.path.abspath('.') + '/runtime_lib/test1.py'
+        self.monitor = monitor.start_monitor_thread('runtime_lib', self.myreg)
+
+        filepath = os.path.abspath('.') + '/runtime_lib/test3.py'
         print(' ------------ test_update_role_with_state')
         company = ce.Company(100000, id='company')
         bob = ce.Person('bob', 10000, id='bob')
@@ -129,7 +129,7 @@ class Developer(rop.Role):
 
         # create file
         helpers.create_file(self.new_role, filepath)
-        time.sleep(0.5)
+        time.sleep(1)
 
         # bob still have the same money into his savings:
         self.assertEquals(bob.roles['developer'].savings, curr_salary)
@@ -138,3 +138,5 @@ class Developer(rop.Role):
         # bob was bound to the "new" role, that pays his old salary + 100 bucks
         self.myreg.invokeRole(company, bob, 'getPaid')
         self.assertEquals(bob.roles['developer'].savings, 2*curr_salary + 100)
+
+        self.monitor.stop()
