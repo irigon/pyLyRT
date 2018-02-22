@@ -1,8 +1,9 @@
 import unittest
-from libs import reg
-import os, time
+import os, time, sys
 from importlib import reload
+sys.path.insert(0, os.path.abspath('.'))
 from libs import monitor
+from libs import reg
 
 
 class TestInvokeCompartment(unittest.TestCase):
