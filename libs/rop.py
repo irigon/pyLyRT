@@ -14,7 +14,6 @@ class Player(Core):
 class Role:
     def __init__(self, uuid):
         self.roles={}
-        g.nspace[uuid]=self
     def type(self):
         return 'role'
 

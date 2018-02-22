@@ -3,4 +3,4 @@ omit =
     */ctypes/*
     */virtualenv/*
     */runtime_lib/*
-    */tests/__pycache__/*
+    tests/__pycache__/*

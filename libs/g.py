@@ -1,11 +1,15 @@
-global roles
-global players
-global compartments
 global nspace
+global roles_played_by
 
-roles={}
-players={}
-compartments={}
+
+# nspace is a dictionary that bindgs role_name to its definition
+nspace={}
 roles_played_by={}
 
-nspace={}
+def clear():
+    global nspace
+    global roles_played_by
+    nspace={}
+    roles_played_by={}
+
+

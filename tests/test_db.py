@@ -16,7 +16,8 @@ class TestDB(unittest.TestCase):
     def setUp(self):
         self.myreg = reg.Reg(db_name)
         self.mock_objs = {}
-
+        for role in [ ce.Freelance, ce.TaxPayer, ce.TaxEmployee, ce.Developer, ce.Accountant ]:
+            self.myreg.add_role(role)
 
     def tearDown(self):
         self.myreg.conn.close()
@@ -162,7 +163,7 @@ class TestDB(unittest.TestCase):
     def test_bind_role_to_person(self):
         company = ce.Company(100000, id='company')
         bob = ce.Person('bob', 10000, id='bob')
-        developer = ce.Developer(100, id='developer')
+        developer = g.nspace['developer'](100, id='developer')
         self.myreg.bind(company, bob, bob, developer, 'PPR')
         line = self.myreg.conn.execute("SELECT * FROM {} ".format(self.myreg.name)).fetchall()[0]
         self.assertEquals(('company', 'bob', 'bob', 'developer', 'PPR', 1, 1), line)
@@ -369,14 +370,14 @@ class TestUnbind(unittest.TestCase):
         self.myreg.bind(ca, pa, rg, ri, 'RPR')
 
         ## basically load the classes to g
-        for player in [pa]:
-            g.players[player.uuid] = player
+        #for player in [pa]:
+        #    g.players[player.uuid] = player
 
-        for compartment in [ca]:
-            g.compartments[compartment.classtype] = compartment
+        #for compartment in [ca]:
+        #    g.compartments[compartment.classtype] = compartment
 
-        for role in [rb, rc, rd, re, rf, rg, rh, ri, rj]:
-            g.roles[role.classtype] = role
+        #for role in [rb, rc, rd, re, rf, rg, rh, ri, rj]:
+        #    g.roles[role.classtype] = role
 
         self.wholeTable=[('compartmentA', 'coreA', 'coreA', 'b', 'PPR', 1, 1),
                         ('compartmentA', 'coreA', 'coreA', 'c', 'PPR', 1, 2),
