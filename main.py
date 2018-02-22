@@ -13,8 +13,8 @@ bob = ce.Person('bob', 10000, id='bob')
 for role in [ce.Developer, ce.TaxPayer]:
     myreg.add_role(role)
 
-developer = g.nspace['developer'][0](100, id='developer')
-taxpayer = g.nspace['taxpayer'][0](id='taxpayer')
+developer = g.nspace['developer'](100, id='developer')
+taxpayer = g.nspace['taxpayer'](id='taxpayer')
 
 myreg.bind(company, bob, bob, developer, 'PPR')
 myreg.invokeRole(company, bob, 'pay')

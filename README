@@ -1,4 +1,4 @@
-# LyRT
+# pyLyRT
 
 ### Installation
 
@@ -15,3 +15,23 @@ $ source myvenv/bin/activate
 (myvenv)$
 ```
 
+### Testing
+
+```
+(myvenv)$ nosetests tests/
+
+alternatively:
+(myvenv)$ nosetests tests/ --with-coverage
+```
+
+### Runtime update example
+
+In one terminal:
+```
+(myenv)$ python3 main.py
+```
+
+In another terminal:
+```
+cp runtime_lib/new_developer.py runtime_lib/newBob.py
+```
