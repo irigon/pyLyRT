@@ -29,6 +29,3 @@ while True:
     myreg.invokeRole(company, bob, 'work')
     myreg.invokeRole(company, bob, 'getPaid')
     print('Hi, I am {}. {}'.format(bob.name, myreg.invokeRole(company, bob, 'show_savings')))
-
-
-
